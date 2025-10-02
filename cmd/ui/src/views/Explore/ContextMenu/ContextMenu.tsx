@@ -20,6 +20,7 @@ import {
     Permission,
     isNode,
     useDeleteNodeMutation,
+    useExploreGraph,
     useExploreParams,
     useExploreSelectedItem,
     useFeatureFlag,
@@ -39,7 +40,8 @@ const ContextMenu: FC<{
 }> = ({ contextMenu, handleClose }) => {
     const setIsDialogOpen = useSetAtom(isDialogOpenAtom);
     const { primarySearch, secondarySearch, setExploreParams } = useExploreParams();
-    const { mutate: deleteNode } = useDeleteNodeMutation();
+    const { refetch } = useExploreGraph();
+    const { mutateAsync: deleteNode } = useDeleteNodeMutation();
     // const { mutateAsync: deleteEdge } = useDeleteEdgeMutation();
     const { selectedItemQuery, selectedItemType } = useExploreSelectedItem();
     const { data: tierFlag } = useFeatureFlag('tier_management_engine');
@@ -80,6 +82,7 @@ const ContextMenu: FC<{
 
         if (selectedItemData && isNode(selectedItemData)) {
             await deleteNode(selectedItemData?.objectId);
+            refetch();
         }
     };
 
