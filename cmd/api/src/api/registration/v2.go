@@ -214,6 +214,8 @@ func NewV2API(resources v2.Resources, routerInst *router.Router) {
 		// Graph Operations API
 		routerInst.POST("/api/v2/graph/nodes", resources.CreateNode).RequirePermissions(permissions.GraphDBWrite),
 		routerInst.POST("/api/v2/graph/edges", resources.CreateEdge).RequirePermissions(permissions.GraphDBWrite),
+		routerInst.PATCH("/api/v2/graph/nodes/{object_id}", resources.UpdateNode).RequirePermissions(permissions.GraphDBWrite),
+		routerInst.PATCH("/api/v2/graph/edges", resources.UpdateEdge).RequirePermissions(permissions.GraphDBWrite),
 		routerInst.DELETE("/api/v2/graph/nodes/{object_id}", resources.DeleteNode).RequirePermissions(permissions.GraphDBWrite),
 		routerInst.DELETE("/api/v2/graph/edges", resources.DeleteEdge).RequirePermissions(permissions.GraphDBWrite),
 		routerInst.GET("/api/v2/graph/replay-log", resources.GetReplayLog).RequirePermissions(permissions.GraphDBRead),
