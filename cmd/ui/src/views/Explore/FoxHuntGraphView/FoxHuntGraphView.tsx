@@ -118,8 +118,10 @@ const GraphView: FC = () => {
     const { mutateAsync: setRollback } = useRollbackMutation();
 
     useEffect(() => {
-        refetchRollbacks();
-    }, [showTimeTravel, refetchRollbacks]);
+        if (showTimeTravel && rollbacksEnabled) {
+            refetchRollbacks();
+        }
+    }, [showTimeTravel, refetchRollbacks, rollbacksEnabled]);
     const autoDisplayTableEnabled = !exploreLayout && !isExploreTableSelected;
     const [autoDisplayTable, setAutoDisplayTable] = useExploreTableAutoDisplay(autoDisplayTableEnabled);
     // TODO: incorporate into larger hook with auto display table logic
