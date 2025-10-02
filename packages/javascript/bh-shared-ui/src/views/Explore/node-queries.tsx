@@ -50,10 +50,13 @@ export const useEditNodeMutation = () => {
 };
 
 export const useDeleteNodeMutation = () => {
+    const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: (nodeId: string) => {
             return apiClient.baseClient.delete(`/api/v2/graph/nodes/${nodeId}`);
         },
+        onSuccess: clearGraphCache(queryClient),
     });
 };
 

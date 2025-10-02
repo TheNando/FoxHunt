@@ -83,6 +83,7 @@ export const BasicObjectInfoFields: React.FC<BasicObjectInfoFieldsProps> = (prop
                     <Field
                         handleContentChange={props.handleContentChange}
                         key={field}
+                        keyprop={field}
                         label={`${formatPotentiallyUnknownLabel(field) ?? field}:`}
                         value={value}
                     />
