@@ -14,7 +14,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import { useTheme } from '@mui/material';
+import { faChevronLeft, faChevronRight, faClose } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { Button, Dialog, DialogContent, DialogTitle, IconButton, SvgIcon, useTheme } from '@mui/material';
 import {
     BaseExploreLayoutOptions,
     ExploreTable,
@@ -25,6 +27,7 @@ import {
     NodeClickInfo,
     WebGLDisabledAlert,
     baseGraphLayouts,
+    cn,
     defaultGraphLayout,
     edgeKindAtom,
     glyphUtils,
@@ -36,6 +39,8 @@ import {
     useExploreSelectedItem,
     useExploreTableAutoDisplay,
     useGraphHasData,
+    useRollbackMutation,
+    useRollbackQuery,
     useTagGlyphs,
     useToggle,
 } from 'bh-shared-ui';
@@ -57,6 +62,23 @@ import { transformIconDictionary } from '../svgIcons';
 import { AddNodeDialog } from './AddNodeDialog';
 import { getEdgePayload, isShiftDownAtom } from './foxhunt';
 
+type Entry = {
+    id: number;
+    created_at?: string;
+    updated_at?: string;
+    deleted_at?: {
+        Time: string;
+        Valid: boolean;
+    };
+    change_type: string;
+    object_type: string;
+    object_id: string;
+    source_object_id: string;
+    target_object_id: string;
+    properties: string;
+    rolled_back_at?: string;
+};
+
 const GraphView: FC = () => {
     /* Hooks */
     const dispatch = useAppDispatch();
@@ -75,6 +97,8 @@ const GraphView: FC = () => {
 
     const [graphologyGraph, setGraphologyGraph] = useState<MultiDirectedGraph<Attributes, Attributes, Attributes>>();
     const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number } | null>(null);
+    const [currentRollbackId, setCurrentRollbackId] = useState<number>();
+    const [showTimeTravel, setShowTimeTravel] = useState(false);
 
     const sigmaChartRef = useRef<any>(null);
 
@@ -85,6 +109,11 @@ const GraphView: FC = () => {
 
     const customIconsQuery = useCustomNodeKinds({ select: transformIconDictionary });
     const tagGlyphMap = useTagGlyphs(glyphUtils, darkMode);
+    const rollbacksEnabled = graphQuery.data;
+    // TODO: figure out when this fetch can be earliest enabled. This is too late
+    const { data: _rollbacks } = useRollbackQuery(rollbacksEnabled);
+    const rollbacks: { count?: number; entries?: Entry[] } = _rollbacks;
+    const { mutateAsync: setRollback } = useRollbackMutation();
 
     const autoDisplayTableEnabled = !exploreLayout && !isExploreTableSelected;
     const [autoDisplayTable, setAutoDisplayTable] = useExploreTableAutoDisplay(autoDisplayTableEnabled);
@@ -105,6 +134,14 @@ const GraphView: FC = () => {
             tagGlyphMap,
         };
     }, [theme, darkMode, customIconsQuery.data, displayTable, tagGlyphMap]);
+
+    // useEffect(() => {
+    //     if (currentRollbackId) {
+    //         const rollback = rollbacks[currentRollbackId];
+
+    //         setRollback(rollback.id).then(refetch);
+    //     }
+    // }, [currentRollbackId, refetch, rollbacks, setRollback]);
 
     // Initialize graph data for rendering with sigmajs
     useEffect(() => {
@@ -157,6 +194,28 @@ const GraphView: FC = () => {
         setContextMenu(null);
     };
 
+    const _currentRollbackIndex = rollbacks?.entries?.findIndex((entry) => entry.id === currentRollbackId) || 0;
+    const currentRollbackIndex = Math.max(_currentRollbackIndex, 0);
+
+    const handleBackRollback = () => {
+        if (typeof currentRollbackIndex === 'number' && currentRollbackIndex > 0) {
+            const prevRollbackId = rollbacks?.entries?.[currentRollbackIndex - 1].id || 0;
+            handleRollbackClick(prevRollbackId);
+        }
+    };
+
+    const handleForwardRollback = () => {
+        if (typeof currentRollbackIndex === 'number' && currentRollbackIndex < (rollbacks?.count || 0) - 1) {
+            const nextRollbackId = rollbacks?.entries?.[currentRollbackIndex + 1].id || 0;
+            handleRollbackClick(nextRollbackId);
+        }
+    };
+
+    const handleRollbackClick = (id: number) => {
+        setCurrentRollbackId(id);
+        setRollback(id);
+    };
+
     const handleManageColumnsChange = (columnOptions: ManageColumnsComboBoxOption[]) => {
         const newItems = makeStoreMapFromColumnOptions(columnOptions);
 
@@ -177,6 +236,7 @@ const GraphView: FC = () => {
         if (layout === 'sequential') sigmaChartRef.current?.runSequentialLayout();
     };
 
+    console.log({ currentRollbackIndex });
     return (
         <div
             className='relative h-full w-full overflow-hidden'
@@ -200,7 +260,63 @@ const GraphView: FC = () => {
                 showEdgeLabels={showEdgeLabels}
                 ref={sigmaChartRef}
             />
-            <div className='absolute top-0 h-full p-4 flex gap-2 justify-between flex-col pointer-events-none'>
+            <div className='absolute top-0 h-full p-4 flex gap-2 justify-between flex-col'>
+                <div className='border-neutral-500 bg-neutral-100 p-2 w-fit'>
+                    <Button onClick={() => setShowTimeTravel(true)}>Show time travel</Button>
+                    <Dialog
+                        scroll='paper'
+                        fullWidth={true}
+                        open={showTimeTravel}
+                        onClose={() => setShowTimeTravel(false)}
+                        PaperProps={{ className: 'w-[90vw] h-[90vh]' }}>
+                        <DialogTitle className='w-full'>
+                            <div className='flex justify-between opacity-100'>
+                                <p className='font-bold'>Time travel</p>
+                                <div className='flex'>
+                                    <IconButton
+                                        title={'Tick back'}
+                                        onClick={handleBackRollback}
+                                        disabled={!currentRollbackIndex}>
+                                        <SvgIcon>
+                                            <FontAwesomeIcon icon={faChevronLeft} />
+                                        </SvgIcon>
+                                    </IconButton>
+                                    <IconButton
+                                        title={'Tick forward'}
+                                        onClick={handleForwardRollback}
+                                        disabled={currentRollbackIndex === (rollbacks?.count || 0) - 1}>
+                                        <SvgIcon>
+                                            <FontAwesomeIcon icon={faChevronRight} />
+                                        </SvgIcon>
+                                    </IconButton>
+                                </div>
+                                <IconButton title={'Close'} onClick={() => setShowTimeTravel(false)}>
+                                    <SvgIcon>
+                                        <FontAwesomeIcon icon={faClose} />
+                                    </SvgIcon>
+                                </IconButton>
+                            </div>
+                        </DialogTitle>
+                        <DialogContent>
+                            <div className='flex flex-col max-h-full'>
+                                {rollbacks?.entries?.map((entry, index) => (
+                                    <Button
+                                        className='flex flex-col'
+                                        key={entry.id + entry.object_id}
+                                        onClick={() => handleRollbackClick(entry.id)}>
+                                        <div
+                                            className={cn('border w-full p-2', {
+                                                'bg-blue-300': index === currentRollbackIndex,
+                                            })}>
+                                            <p> {entry.change_type}</p>
+                                            <p>{entry.object_id}</p>
+                                        </div>
+                                    </Button>
+                                ))}
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </div>
                 <ExploreSearch />
                 <GraphControls
                     isExploreTableSelected={isExploreTableSelected}
