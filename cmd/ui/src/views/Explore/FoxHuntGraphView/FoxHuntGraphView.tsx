@@ -35,6 +35,7 @@ import {
     makeStoreMapFromColumnOptions,
     useCreateEdgeMutation,
     useCustomNodeKinds,
+    useExploreGraph,
     useExploreParams,
     useExploreSelectedItem,
     useExploreTableAutoDisplay,
@@ -92,6 +93,7 @@ const GraphView: FC = () => {
     const isShiftDown = useAtomValue(isShiftDownAtom);
     const { mutate: createEdge } = useCreateEdgeMutation();
 
+    const { refetch } = useExploreGraph();
     const { searchType } = useExploreParams();
     const { selectedItem, setSelectedItem, clearSelectedItem } = useExploreSelectedItem();
 
@@ -111,10 +113,13 @@ const GraphView: FC = () => {
     const tagGlyphMap = useTagGlyphs(glyphUtils, darkMode);
     const rollbacksEnabled = graphQuery.data;
     // TODO: figure out when this fetch can be earliest enabled. This is too late
-    const { data: _rollbacks } = useRollbackQuery(rollbacksEnabled);
+    const { data: _rollbacks, refetch: refetchRollbacks } = useRollbackQuery(rollbacksEnabled);
     const rollbacks: { count?: number; entries?: Entry[] } = _rollbacks;
     const { mutateAsync: setRollback } = useRollbackMutation();
 
+    useEffect(() => {
+        refetchRollbacks();
+    }, [showTimeTravel, refetchRollbacks]);
     const autoDisplayTableEnabled = !exploreLayout && !isExploreTableSelected;
     const [autoDisplayTable, setAutoDisplayTable] = useExploreTableAutoDisplay(autoDisplayTableEnabled);
     // TODO: incorporate into larger hook with auto display table logic
@@ -211,9 +216,10 @@ const GraphView: FC = () => {
         }
     };
 
-    const handleRollbackClick = (id: number) => {
+    const handleRollbackClick = async (id: number) => {
         setCurrentRollbackId(id);
-        setRollback(id);
+        await setRollback(id);
+        refetch();
     };
 
     const handleManageColumnsChange = (columnOptions: ManageColumnsComboBoxOption[]) => {
@@ -268,7 +274,7 @@ const GraphView: FC = () => {
                         fullWidth={true}
                         open={showTimeTravel}
                         onClose={() => setShowTimeTravel(false)}
-                        PaperProps={{ className: 'w-[90vw] h-[90vh]' }}>
+                        PaperProps={{ className: 'w-[90vw] h-[90vh] absolute right-0' }}>
                         <DialogTitle className='w-full'>
                             <div className='flex justify-between opacity-100'>
                                 <p className='font-bold'>Time travel</p>
