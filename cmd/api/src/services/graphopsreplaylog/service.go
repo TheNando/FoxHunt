@@ -414,14 +414,190 @@ func (s *service) DeleteEdge(ctx context.Context, sourceObjectID, targetObjectID
 	return nil
 }
 
-// UpdateNode is a stub for future implementation of node updates.
+// UpdateNode updates an existing node in the graph and logs the operation.
+// The replay log entry is persisted first to ensure we have a record even if the graph operation fails.
 func (s *service) UpdateNode(ctx context.Context, objectID string, labels []string, properties map[string]interface{}) error {
-	return fmt.Errorf("update operations are not yet implemented")
+	// First, verify the node exists and capture its current state for rollback
+	var currentLabels []string
+	var currentProperties map[string]interface{}
+
+	err := s.graphDB.ReadTransaction(ctx, func(tx graph.Transaction) error {
+		var targetNode *graph.Node
+		err := tx.Nodes().Filter(
+			query.Equals(query.NodeProperty(common.ObjectID.String()), strings.ToUpper(objectID)),
+		).Fetch(func(cursor graph.Cursor[*graph.Node]) error {
+			for n := range cursor.Chan() {
+				targetNode = n
+				break
+			}
+			return cursor.Error()
+		})
+
+		if err != nil {
+			return fmt.Errorf("failed to find node: %w", err)
+		}
+		if targetNode == nil {
+			return fmt.Errorf("node not found")
+		}
+
+		// Capture current state for rollback
+		for _, kind := range targetNode.Kinds {
+			currentLabels = append(currentLabels, kind.String())
+		}
+		currentProperties = make(map[string]interface{})
+		for k, v := range targetNode.Properties.Map {
+			currentProperties[k] = v
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to read node state: %w", err)
+	}
+
+	// Log the operation with current state for rollback
+	if err := s.logChange(ctx, model.ChangeTypeUpdate, model.ObjectTypeNode, objectID, currentLabels, "", "", currentProperties); err != nil {
+		return fmt.Errorf("failed to log node update: %w", err)
+	}
+
+	// Perform the actual graph operation
+	err = s.graphDB.BatchOperation(ctx, func(batch graph.Batch) error {
+		// Find the node first to get its current kinds
+		var targetNode *graph.Node
+		err := batch.Nodes().Filter(
+			query.Equals(query.NodeProperty(common.ObjectID.String()), strings.ToUpper(objectID)),
+		).Fetch(func(cursor graph.Cursor[*graph.Node]) error {
+			for n := range cursor.Chan() {
+				targetNode = n
+				break
+			}
+			return cursor.Error()
+		})
+
+		if err != nil || targetNode == nil {
+			return fmt.Errorf("node not found")
+		}
+
+		// Determine which labels to use (new labels if provided, otherwise keep existing)
+		kinds := targetNode.Kinds
+		if len(labels) > 0 {
+			kinds = make(graph.Kinds, len(labels))
+			for i, label := range labels {
+				kinds[i] = graph.StringKind(label)
+			}
+		}
+
+		// Merge properties: start with current, then apply updates
+		props := make(map[string]interface{})
+		for k, v := range targetNode.Properties.Map {
+			props[k] = v
+		}
+		for k, v := range properties {
+			props[k] = v
+		}
+		props[common.ObjectID.String()] = strings.ToUpper(objectID)
+		props[common.LastSeen.String()] = time.Now().UTC()
+
+		return batch.UpdateNodeBy(graph.NodeUpdate{
+			Node:               graph.PrepareNode(graph.AsProperties(props), kinds...),
+			IdentityKind:       kinds[0],
+			IdentityProperties: []string{common.ObjectID.String()},
+		})
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to update node in graph: %w", err)
+	}
+
+	return nil
 }
 
-// UpdateEdge is a stub for future implementation of edge updates.
+// UpdateEdge updates an existing edge in the graph and logs the operation.
+// The replay log entry is persisted first to ensure we have a record even if the graph operation fails.
 func (s *service) UpdateEdge(ctx context.Context, sourceObjectID, targetObjectID, edgeKind string, properties map[string]interface{}) error {
-	return fmt.Errorf("update operations are not yet implemented")
+	var currentProperties map[string]interface{}
+
+	// First, read the edge's current properties for rollback
+	err := s.graphDB.ReadTransaction(ctx, func(tx graph.Transaction) error {
+		src, err := s.findNode(tx, sourceObjectID)
+		if err != nil {
+			return fmt.Errorf("source node not found")
+		}
+		tgt, err := s.findNode(tx, targetObjectID)
+		if err != nil {
+			return fmt.Errorf("target node not found")
+		}
+
+		// Find the edge and capture its current properties
+		return tx.Relationships().Filter(
+			query.And(
+				query.Equals(query.StartID(), src.ID),
+				query.Equals(query.EndID(), tgt.ID),
+				query.KindIn(query.Relationship(), graph.StringKind(edgeKind)),
+			),
+		).Fetch(func(cursor graph.Cursor[*graph.Relationship]) error {
+			for rel := range cursor.Chan() {
+				currentProperties = make(map[string]interface{})
+				for k, v := range rel.Properties.Map {
+					currentProperties[k] = v
+				}
+				break
+			}
+			return cursor.Error()
+		})
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to read edge properties: %w", err)
+	}
+
+	if currentProperties == nil {
+		return fmt.Errorf("edge not found")
+	}
+
+	// Log the operation with current state for rollback
+	if err := s.logChange(ctx, model.ChangeTypeUpdate, model.ObjectTypeEdge, edgeKind, []string{edgeKind}, sourceObjectID, targetObjectID, currentProperties); err != nil {
+		return fmt.Errorf("failed to log edge update: %w", err)
+	}
+
+	// Perform the actual graph operation
+	err = s.graphDB.BatchOperation(ctx, func(batch graph.Batch) error {
+		src, err := s.findNode(batch, sourceObjectID)
+		if err != nil {
+			return fmt.Errorf("source node not found")
+		}
+		tgt, err := s.findNode(batch, targetObjectID)
+		if err != nil {
+			return fmt.Errorf("target node not found")
+		}
+
+		// Merge properties: start with current, then apply updates
+		props := make(map[string]interface{})
+		for k, v := range currentProperties {
+			props[k] = v
+		}
+		for k, v := range properties {
+			props[k] = v
+		}
+		props[common.LastSeen.String()] = time.Now().UTC()
+
+		return batch.UpdateRelationshipBy(graph.RelationshipUpdate{
+			Relationship:            graph.PrepareRelationship(graph.AsProperties(props), graph.StringKind(edgeKind)),
+			Start:                   graph.PrepareNode(graph.AsProperties(graph.PropertyMap{common.ObjectID: strings.ToUpper(sourceObjectID), common.LastSeen: time.Now().UTC()}), src.Kinds...),
+			StartIdentityKind:       src.Kinds[0],
+			StartIdentityProperties: []string{common.ObjectID.String()},
+			End:                     graph.PrepareNode(graph.AsProperties(graph.PropertyMap{common.ObjectID: strings.ToUpper(targetObjectID), common.LastSeen: time.Now().UTC()}), tgt.Kinds...),
+			EndIdentityKind:         tgt.Kinds[0],
+			EndIdentityProperties:   []string{common.ObjectID.String()},
+		})
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to update edge in graph: %w", err)
+	}
+
+	return nil
 }
 
 // GetRecentChanges retrieves the most recent replay log entries.
@@ -571,17 +747,23 @@ func (s *service) RollToEntry(ctx context.Context, targetEntryID int64) error {
 	return nil
 }
 
-// applyInverse inverts an operation (create→delete, delete→create)
+// applyInverse inverts an operation (create→delete, delete→create, update→restore previous state)
 func (s *service) applyInverse(ctx context.Context, entry model.GraphOperationReplayLogEntry) error {
 	switch {
 	case entry.ChangeType == model.ChangeTypeCreate && entry.ObjectType == model.ObjectTypeNode:
 		return s.deleteNodeDirect(ctx, entry.ObjectID)
 	case entry.ChangeType == model.ChangeTypeDelete && entry.ObjectType == model.ObjectTypeNode:
 		return s.createNodeDirect(ctx, entry)
+	case entry.ChangeType == model.ChangeTypeUpdate && entry.ObjectType == model.ObjectTypeNode:
+		// For update, restore the previous state (stored in the log entry)
+		return s.updateNodeDirect(ctx, entry)
 	case entry.ChangeType == model.ChangeTypeCreate && entry.ObjectType == model.ObjectTypeEdge:
 		return s.deleteEdgeDirect(ctx, entry)
 	case entry.ChangeType == model.ChangeTypeDelete && entry.ObjectType == model.ObjectTypeEdge:
 		return s.createEdgeDirect(ctx, entry)
+	case entry.ChangeType == model.ChangeTypeUpdate && entry.ObjectType == model.ObjectTypeEdge:
+		// For update, restore the previous state (stored in the log entry)
+		return s.updateEdgeDirect(ctx, entry)
 	}
 	return nil
 }
@@ -593,10 +775,14 @@ func (s *service) applyDirect(ctx context.Context, entry model.GraphOperationRep
 		return s.createNodeDirect(ctx, entry)
 	case entry.ChangeType == model.ChangeTypeDelete && entry.ObjectType == model.ObjectTypeNode:
 		return s.deleteNodeDirect(ctx, entry.ObjectID)
+	case entry.ChangeType == model.ChangeTypeUpdate && entry.ObjectType == model.ObjectTypeNode:
+		return s.updateNodeDirect(ctx, entry)
 	case entry.ChangeType == model.ChangeTypeCreate && entry.ObjectType == model.ObjectTypeEdge:
 		return s.createEdgeDirect(ctx, entry)
 	case entry.ChangeType == model.ChangeTypeDelete && entry.ObjectType == model.ObjectTypeEdge:
 		return s.deleteEdgeDirect(ctx, entry)
+	case entry.ChangeType == model.ChangeTypeUpdate && entry.ObjectType == model.ObjectTypeEdge:
+		return s.updateEdgeDirect(ctx, entry)
 	}
 	return nil
 }
@@ -708,6 +894,78 @@ func (s *service) deleteEdgeDirect(ctx context.Context, entry model.GraphOperati
 				query.KindIn(query.Relationship(), graph.StringKind(edgeKind)),
 			),
 		).Delete()
+	})
+}
+
+// updateNodeDirect updates a node without logging (used for rollback)
+func (s *service) updateNodeDirect(ctx context.Context, entry model.GraphOperationReplayLogEntry) error {
+	var labels []string
+	if err := json.Unmarshal(entry.Labels, &labels); err != nil {
+		return err
+	}
+
+	var properties map[string]interface{}
+	if err := json.Unmarshal(entry.Properties, &properties); err != nil {
+		return err
+	}
+
+	kinds := make(graph.Kinds, len(labels))
+	for i, label := range labels {
+		kinds[i] = graph.StringKind(label)
+	}
+
+	props := properties
+	if props == nil {
+		props = make(map[string]interface{})
+	}
+	props[common.ObjectID.String()] = strings.ToUpper(entry.ObjectID)
+
+	return s.graphDB.BatchOperation(ctx, func(batch graph.Batch) error {
+		return batch.UpdateNodeBy(graph.NodeUpdate{
+			Node:               graph.PrepareNode(graph.AsProperties(props), kinds...),
+			IdentityKind:       kinds[0],
+			IdentityProperties: []string{common.ObjectID.String()},
+		})
+	})
+}
+
+// updateEdgeDirect updates an edge without logging (used for rollback)
+func (s *service) updateEdgeDirect(ctx context.Context, entry model.GraphOperationReplayLogEntry) error {
+	var labels []string
+	if err := json.Unmarshal(entry.Labels, &labels); err != nil {
+		return err
+	}
+
+	var properties map[string]interface{}
+	if err := json.Unmarshal(entry.Properties, &properties); err != nil {
+		return err
+	}
+
+	edgeKind := labels[0]
+	props := properties
+	if props == nil {
+		props = make(map[string]interface{})
+	}
+
+	return s.graphDB.BatchOperation(ctx, func(batch graph.Batch) error {
+		src, err := s.findNode(batch, entry.SourceObjectID.String)
+		if err != nil {
+			return err
+		}
+		tgt, err := s.findNode(batch, entry.TargetObjectID.String)
+		if err != nil {
+			return err
+		}
+
+		return batch.UpdateRelationshipBy(graph.RelationshipUpdate{
+			Relationship:            graph.PrepareRelationship(graph.AsProperties(props), graph.StringKind(edgeKind)),
+			Start:                   graph.PrepareNode(graph.AsProperties(graph.PropertyMap{common.ObjectID: strings.ToUpper(entry.SourceObjectID.String), common.LastSeen: time.Now().UTC()}), src.Kinds...),
+			StartIdentityKind:       src.Kinds[0],
+			StartIdentityProperties: []string{common.ObjectID.String()},
+			End:                     graph.PrepareNode(graph.AsProperties(graph.PropertyMap{common.ObjectID: strings.ToUpper(entry.TargetObjectID.String), common.LastSeen: time.Now().UTC()}), tgt.Kinds...),
+			EndIdentityKind:         tgt.Kinds[0],
+			EndIdentityProperties:   []string{common.ObjectID.String()},
+		})
 	})
 }
 

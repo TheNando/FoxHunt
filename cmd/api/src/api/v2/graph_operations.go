@@ -31,6 +31,18 @@ type DeleteEdgeRequest struct {
 	EdgeKind       string `json:"edge_kind"`
 }
 
+type UpdateNodeRequest struct {
+	Labels     []string               `json:"labels,omitempty"`
+	Properties map[string]interface{} `json:"properties,omitempty"`
+}
+
+type UpdateEdgeRequest struct {
+	SourceObjectID string                 `json:"source_object_id"`
+	TargetObjectID string                 `json:"target_object_id"`
+	EdgeKind       string                 `json:"edge_kind"`
+	Properties     map[string]interface{} `json:"properties,omitempty"`
+}
+
 // CreateNode handles HTTP requests to create a new graph node.
 // The request is routed through the GraphOpsLog service which logs the operation
 // before executing it against the graph database.
@@ -146,6 +158,75 @@ func (s Resources) GetReplayLog(response http.ResponseWriter, request *http.Requ
 		"entries": entries,
 	})
 }
+
+
+// UpdateNode handles HTTP requests to update an existing graph node.
+// The request is routed through the GraphOpsLog service which logs the operation
+// before executing it against the graph database.
+func (s Resources) UpdateNode(response http.ResponseWriter, request *http.Request) {
+	objectID := mux.Vars(request)["object_id"]
+	if objectID == "" {
+		api.WriteErrorResponse(request.Context(), api.BuildErrorResponse(http.StatusBadRequest, "object_id required", request), response)
+		return
+	}
+
+	var req UpdateNodeRequest
+	defer request.Body.Close()
+
+	if err := json.NewDecoder(request.Body).Decode(&req); err != nil {
+		api.WriteErrorResponse(request.Context(), api.BuildErrorResponse(http.StatusBadRequest, err.Error(), request), response)
+		return
+	}
+
+	// At least one of labels or properties must be provided
+	if len(req.Labels) == 0 && len(req.Properties) == 0 {
+		api.WriteErrorResponse(request.Context(), api.BuildErrorResponse(http.StatusBadRequest, "at least one of labels or properties must be provided", request), response)
+		return
+	}
+
+	// Use the graph operations service to update the node (logs then executes)
+	if err := s.GraphOpsLog.UpdateNode(request.Context(), objectID, req.Labels, req.Properties); err != nil {
+		api.WriteErrorResponse(request.Context(), api.BuildErrorResponse(http.StatusInternalServerError, err.Error(), request), response)
+		return
+	}
+
+	response.WriteHeader(http.StatusOK)
+	json.NewEncoder(response).Encode(map[string]string{"object_id": objectID})
+}
+
+
+// UpdateEdge handles HTTP requests to update an existing graph edge.
+// The request is routed through the GraphOpsLog service which logs the operation
+// before executing it against the graph database.
+func (s Resources) UpdateEdge(response http.ResponseWriter, request *http.Request) {
+	var req UpdateEdgeRequest
+	defer request.Body.Close()
+
+	if err := json.NewDecoder(request.Body).Decode(&req); err != nil {
+		api.WriteErrorResponse(request.Context(), api.BuildErrorResponse(http.StatusBadRequest, err.Error(), request), response)
+		return
+	}
+
+	if req.SourceObjectID == "" || req.TargetObjectID == "" || req.EdgeKind == "" {
+		api.WriteErrorResponse(request.Context(), api.BuildErrorResponse(http.StatusBadRequest, "source_object_id, target_object_id, and edge_kind required", request), response)
+		return
+	}
+
+	if len(req.Properties) == 0 {
+		api.WriteErrorResponse(request.Context(), api.BuildErrorResponse(http.StatusBadRequest, "properties required for update", request), response)
+		return
+	}
+
+	// Use the graph operations service to update the edge (logs then executes)
+	if err := s.GraphOpsLog.UpdateEdge(request.Context(), req.SourceObjectID, req.TargetObjectID, req.EdgeKind, req.Properties); err != nil {
+		api.WriteErrorResponse(request.Context(), api.BuildErrorResponse(http.StatusInternalServerError, err.Error(), request), response)
+		return
+	}
+
+	response.WriteHeader(http.StatusOK)
+	json.NewEncoder(response).Encode(map[string]string{"edge_kind": req.EdgeKind})
+}
+
 
 // RollToEntry rolls the graph state to a specific entry ID (logical clock).
 // Accepts a query parameter 'to' with the target entry ID.
