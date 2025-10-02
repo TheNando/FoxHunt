@@ -272,6 +272,7 @@ const GraphView: FC = () => {
                 <div className='border-neutral-500 bg-neutral-100 p-2 w-fit'>
                     <Button onClick={() => setShowTimeTravel(true)}>Show time travel</Button>
                     <Dialog
+                        BackdropProps={{ invisible: true }}
                         scroll='paper'
                         fullWidth={true}
                         open={showTimeTravel}

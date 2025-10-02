@@ -16,7 +16,7 @@
 import { Alert, Skeleton } from '@mui/material';
 import { debounce } from 'lodash';
 import React, { FormEventHandler, useEffect } from 'react';
-import { useExploreParams, useFetchEntityProperties, usePreviousValue } from '../../hooks';
+import { useExploreGraph, useExploreParams, useFetchEntityProperties, usePreviousValue } from '../../hooks';
 import { EntityField, EntityInfoContentProps, formatObjectInfoFields } from '../../utils';
 import { BasicObjectInfoFields } from '../../views/Explore/BasicObjectInfoFields';
 import { SearchValue } from '../../views/Explore/ExploreSearch';
@@ -35,6 +35,7 @@ const EntityObjectInformation: React.FC<EntityInfoContentProps> = ({ id, nodeTyp
         databaseId,
     });
 
+    const { refetch } = useExploreGraph();
     const previousId = usePreviousValue(id);
 
     useEffect(() => {
@@ -75,6 +76,7 @@ const EntityObjectInformation: React.FC<EntityInfoContentProps> = ({ id, nodeTyp
         const value = divEl.innerText;
 
         await editNode({ nodeId: id, node: { [key]: value } });
+        refetch();
     }, 500);
 
     return (

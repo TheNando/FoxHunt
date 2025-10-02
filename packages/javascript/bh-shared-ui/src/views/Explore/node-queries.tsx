@@ -42,11 +42,13 @@ export const useCreateEdgeMutation = () => {
 };
 
 export const useEditNodeMutation = () => {
+    const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: ({ nodeId, node }: { nodeId: string; node: Record<string, any> }) => {
             return apiClient.baseClient.patch(`/api/v2/graph/nodes/${nodeId}`, { properties: node });
         },
-        onSuccess: clearGraphCache(QueryClient),
+        onSuccess: clearGraphCache(queryClient),
     });
 };
 
@@ -72,6 +74,7 @@ export const useRollbackQuery = (enabled: boolean) => {
         queryFn: () => {
             return apiClient.baseClient.get('/api/v2/graph/replay-log').then((res) => res?.data);
         },
+        onSuccess: clearGraphCache(QueryClient),
     });
 };
 
