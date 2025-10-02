@@ -314,9 +314,12 @@ const GraphView: FC = () => {
                                         key={`${entry.id}${entry.object_id}${entry.object_type}${entry.created_at}`}
                                         onClick={() => handleRollbackClick(entry.id)}>
                                         <div
-                                            className={cn('border w-full p-2', {
-                                                'bg-blue-300': index === currentRollbackIndex,
-                                            })}>
+                                            className={cn(
+                                                'border border-stone-700 w-full p-2 dark:text-secondary-variant-2 dark:border-stone-500',
+                                                {
+                                                    'bg-blue-300 dark:text-primary': index === currentRollbackIndex,
+                                                }
+                                            )}>
                                             <p> {entry.change_type}</p>
                                             <p>{entry.object_id}</p>
                                         </div>
