@@ -9,23 +9,24 @@ import {
 } from '@bloodhoundenterprise/doodleui';
 import { useCreateNodeMutation } from 'bh-shared-ui';
 import { useAtom } from 'jotai';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { isDialogOpenAtom } from './foxhunt';
 
-const DEFAULT_PAYLOAD = JSON.stringify(
-    {
-        object_id: crypto.randomUUID(),
-        labels: ['Foxhunt'],
-        properties: {
-            name: '',
+const makePayload = () =>
+    JSON.stringify(
+        {
+            object_id: crypto.randomUUID(),
+            labels: ['Foxhunt'],
+            properties: {
+                name: '',
+            },
         },
-    },
-    null,
-    4
-);
+        null,
+        4
+    );
 
 export const AddNodeDialog = () => {
-    const [node, setNode] = useState(DEFAULT_PAYLOAD);
+    const [node, setNode] = useState(makePayload());
     const [isDialogOpen, setIsDialogOpen] = useAtom(isDialogOpenAtom);
     const { mutateAsync: addNode } = useCreateNodeMutation();
 
@@ -41,6 +42,10 @@ export const AddNodeDialog = () => {
     const cancel = () => {
         setIsDialogOpen(false);
     };
+
+    useEffect(() => {
+        setNode(makePayload());
+    }, [isDialogOpen]);
 
     return (
         <Dialog open={isDialogOpen}>
