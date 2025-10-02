@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from 'react-query';
+import { QueryClient, useMutation, useQuery, useQueryClient } from 'react-query';
 import { apiClient } from '../../utils';
 
 type Node = {
@@ -46,6 +46,7 @@ export const useEditNodeMutation = () => {
         mutationFn: ({ nodeId, node }: { nodeId: string; node: Record<string, any> }) => {
             return apiClient.baseClient.patch(`/api/v2/graph/nodes/${nodeId}`, { properties: node });
         },
+        onSuccess: clearGraphCache(QueryClient),
     });
 };
 

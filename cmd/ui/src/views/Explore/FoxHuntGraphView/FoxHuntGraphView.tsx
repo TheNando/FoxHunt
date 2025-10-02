@@ -118,7 +118,7 @@ const GraphView: FC = () => {
     const { mutateAsync: setRollback } = useRollbackMutation();
 
     useEffect(() => {
-        if (showTimeTravel && rollbacksEnabled) {
+        if (rollbacksEnabled) {
             refetchRollbacks();
         }
     }, [showTimeTravel, refetchRollbacks, rollbacksEnabled]);
@@ -310,7 +310,7 @@ const GraphView: FC = () => {
                                 {rollbacks?.entries?.map((entry, index) => (
                                     <Button
                                         className='flex flex-col'
-                                        key={entry.id + entry.object_id}
+                                        key={`${entry.id}${entry.object_id}${entry.object_type}${entry.created_at}`}
                                         onClick={() => handleRollbackClick(entry.id)}>
                                         <div
                                             className={cn('border w-full p-2', {
