@@ -43,6 +43,7 @@ export const useCreateEdgeMutation = () => {
 
 export const useEditNodeMutation = () => {
     const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: ({ nodeId, node }: { nodeId: string; node: Record<string, any> }) => {
             return apiClient.baseClient.put(`/api/v2/graph/nodes/${nodeId}`, node);
