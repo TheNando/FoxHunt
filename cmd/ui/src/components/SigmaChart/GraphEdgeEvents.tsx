@@ -196,8 +196,7 @@ export const GraphEdgeEvents: FC<GraphEdgeEventProps> = ({ onClickEdge, onContex
             width={parseInt(width)}
             height={parseInt(height)}
             style={{ position: 'absolute', height: height, width: width, inset: 0 }}
-            onKeyDown={(e) => setIsShiftDown(e.shiftKey)}
-            onKeyUp={(e) => setIsShiftDown(e.shiftKey)}
+            onKeyDown={() => setIsShiftDown(Date.now())}
             onClick={handleEdgeEvents}
             onContextMenu={handleEdgeEvents}
             onMouseDown={handleEdgeEvents}

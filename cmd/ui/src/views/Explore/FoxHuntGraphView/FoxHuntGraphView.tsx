@@ -236,7 +236,6 @@ const GraphView: FC = () => {
         if (layout === 'sequential') sigmaChartRef.current?.runSequentialLayout();
     };
 
-    console.log({ currentRollbackIndex });
     return (
         <div
             className='relative h-full w-full overflow-hidden'
@@ -247,7 +246,7 @@ const GraphView: FC = () => {
                 highlightedItem={selectedItem}
                 onClickEdge={setSelectedItem}
                 onClickNode={(node) => {
-                    if (isShiftDown && graphQuery?.data && graphEdgeKind) {
+                    if (Date.now() - isShiftDown < 1000 && graphQuery?.data && graphEdgeKind) {
                         const edge = getEdgePayload(graphQuery?.data, node, selectedItem || '', graphEdgeKind);
                         createEdge(edge);
                     } else {
