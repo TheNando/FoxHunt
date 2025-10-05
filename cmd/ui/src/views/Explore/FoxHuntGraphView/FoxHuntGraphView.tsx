@@ -14,9 +14,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-import { faChevronLeft, faChevronRight, faClose } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Button, Dialog, DialogContent, DialogTitle, IconButton, SvgIcon, useTheme } from '@mui/material';
+// import { faChevronLeft, faChevronRight, faClose } from '@fortawesome/free-solid-svg-icons';
+// import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { Button, Dialog, DialogContent, DialogTitle, /* IconButton, SvgIcon, */ useTheme } from '@mui/material';
 import {
     BaseExploreLayoutOptions,
     ExploreTable,
@@ -27,7 +27,7 @@ import {
     NodeClickInfo,
     WebGLDisabledAlert,
     baseGraphLayouts,
-    cn,
+    // cn,
     defaultGraphLayout,
     edgeKindAtom,
     glyphUtils,
@@ -39,8 +39,8 @@ import {
     useExploreSelectedItem,
     useExploreTableAutoDisplay,
     useGraphHasData,
-    useRollbackMutation,
-    useRollbackQuery,
+    // useRollbackMutation,
+    // useRollbackQuery,
     useTagGlyphs,
     useToggle,
 } from 'bh-shared-ui';
@@ -62,24 +62,24 @@ import { transformIconDictionary } from '../svgIcons';
 import { AddNodeDialog } from './AddNodeDialog';
 import { getEdgePayload, isShiftDownAtom } from './foxhunt';
 
-type Entry = {
-    id: number;
-    created_at?: string;
-    updated_at?: string;
-    deleted_at?: {
-        Time: string;
-        Valid: boolean;
-    };
-    change_type: string;
-    object_type: string;
-    object_id: string;
-    source_object_id: string;
-    target_object_id: string;
-    properties: string;
-    rolled_back_at?: string;
-};
+// type Entry = {
+//     id: number;
+//     created_at?: string;
+//     updated_at?: string;
+//     deleted_at?: {
+//         Time: string;
+//         Valid: boolean;
+//     };
+//     change_type: string;
+//     object_type: string;
+//     object_id: string;
+//     source_object_id: string;
+//     target_object_id: string;
+//     properties: string;
+//     rolled_back_at?: string;
+// };
 
-const GraphView: FC = () => {
+const FoxHuntGraphView: FC = () => {
     /* Hooks */
     const dispatch = useAppDispatch();
 
@@ -97,7 +97,7 @@ const GraphView: FC = () => {
 
     const [graphologyGraph, setGraphologyGraph] = useState<MultiDirectedGraph<Attributes, Attributes, Attributes>>();
     const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number } | null>(null);
-    const [currentRollbackId, setCurrentRollbackId] = useState<number>();
+    // const [currentRollbackId, setCurrentRollbackId] = useState<number>();
     const [showTimeTravel, setShowTimeTravel] = useState(false);
 
     const sigmaChartRef = useRef<any>(null);
@@ -109,11 +109,11 @@ const GraphView: FC = () => {
 
     const customIconsQuery = useCustomNodeKinds({ select: transformIconDictionary });
     const tagGlyphMap = useTagGlyphs(glyphUtils, darkMode);
-    const rollbacksEnabled = graphQuery.data;
+    // const rollbacksEnabled = graphQuery.data;
     // TODO: figure out when this fetch can be earliest enabled. This is too late
-    const { data: _rollbacks } = useRollbackQuery(rollbacksEnabled);
-    const rollbacks: { count?: number; entries?: Entry[] } = _rollbacks;
-    const { mutateAsync: setRollback } = useRollbackMutation();
+    // const { data: _rollbacks } = useRollbackQuery(rollbacksEnabled);
+    // const rollbacks: { count?: number; entries?: Entry[] } = _rollbacks;
+    // const { mutateAsync: setRollback } = useRollbackMutation();
 
     const autoDisplayTableEnabled = !exploreLayout && !isExploreTableSelected;
     const [autoDisplayTable, setAutoDisplayTable] = useExploreTableAutoDisplay(autoDisplayTableEnabled);
@@ -194,27 +194,27 @@ const GraphView: FC = () => {
         setContextMenu(null);
     };
 
-    const _currentRollbackIndex = rollbacks?.entries?.findIndex((entry) => entry.id === currentRollbackId) || 0;
-    const currentRollbackIndex = Math.max(_currentRollbackIndex, 0);
+    // const _currentRollbackIndex = rollbacks?.entries?.findIndex((entry) => entry.id === currentRollbackId) || 0;
+    // const currentRollbackIndex = Math.max(_currentRollbackIndex, 0);
 
-    const handleBackRollback = () => {
-        if (typeof currentRollbackIndex === 'number' && currentRollbackIndex > 0) {
-            const prevRollbackId = rollbacks?.entries?.[currentRollbackIndex - 1].id || 0;
-            handleRollbackClick(prevRollbackId);
-        }
-    };
+    // const handleBackRollback = () => {
+    //     if (typeof currentRollbackIndex === 'number' && currentRollbackIndex > 0) {
+    //         const prevRollbackId = rollbacks?.entries?.[currentRollbackIndex - 1].id || 0;
+    //         handleRollbackClick(prevRollbackId);
+    //     }
+    // };
 
-    const handleForwardRollback = () => {
-        if (typeof currentRollbackIndex === 'number' && currentRollbackIndex < (rollbacks?.count || 0) - 1) {
-            const nextRollbackId = rollbacks?.entries?.[currentRollbackIndex + 1].id || 0;
-            handleRollbackClick(nextRollbackId);
-        }
-    };
+    // const handleForwardRollback = () => {
+    //     if (typeof currentRollbackIndex === 'number' && currentRollbackIndex < (rollbacks?.count || 0) - 1) {
+    //         const nextRollbackId = rollbacks?.entries?.[currentRollbackIndex + 1].id || 0;
+    //         handleRollbackClick(nextRollbackId);
+    //     }
+    // };
 
-    const handleRollbackClick = (id: number) => {
-        setCurrentRollbackId(id);
-        setRollback(id);
-    };
+    // const handleRollbackClick = (id: number) => {
+    //     setCurrentRollbackId(id);
+    //     // setRollback(id);
+    // };
 
     const handleManageColumnsChange = (columnOptions: ManageColumnsComboBoxOption[]) => {
         const newItems = makeStoreMapFromColumnOptions(columnOptions);
@@ -272,7 +272,7 @@ const GraphView: FC = () => {
                             <div className='flex justify-between opacity-100'>
                                 <p className='font-bold'>Time travel</p>
                                 <div className='flex'>
-                                    <IconButton
+                                    {/* <IconButton
                                         title={'Tick back'}
                                         onClick={handleBackRollback}
                                         disabled={!currentRollbackIndex}>
@@ -287,18 +287,18 @@ const GraphView: FC = () => {
                                         <SvgIcon>
                                             <FontAwesomeIcon icon={faChevronRight} />
                                         </SvgIcon>
-                                    </IconButton>
+                                    </IconButton> */}
                                 </div>
-                                <IconButton title={'Close'} onClick={() => setShowTimeTravel(false)}>
+                                {/* <IconButton title={'Close'} onClick={() => setShowTimeTravel(false)}>
                                     <SvgIcon>
                                         <FontAwesomeIcon icon={faClose} />
                                     </SvgIcon>
-                                </IconButton>
+                                </IconButton> */}
                             </div>
                         </DialogTitle>
                         <DialogContent>
                             <div className='flex flex-col max-h-full'>
-                                {rollbacks?.entries?.map((entry, index) => (
+                                {/* {rollbacks?.entries?.map((entry, index) => (
                                     <Button
                                         className='flex flex-col'
                                         key={entry.id + entry.object_id}
@@ -314,7 +314,7 @@ const GraphView: FC = () => {
                                             <p>{entry.object_id}</p>
                                         </div>
                                     </Button>
-                                ))}
+                                ))} */}
                             </div>
                         </DialogContent>
                     </Dialog>
@@ -358,4 +358,4 @@ const GraphView: FC = () => {
     );
 };
 
-export default GraphView;
+export default FoxHuntGraphView;

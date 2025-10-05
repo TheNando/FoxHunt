@@ -34,6 +34,7 @@ export * from './Equals';
 export * from './FileMagnifyingGlass';
 export * from './FilterOutline';
 export * from './Findings';
+export * from './Fox';
 export * from './Info';
 export * from './LargeRightArrow';
 export * from './LineChart';
