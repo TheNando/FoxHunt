@@ -80,7 +80,7 @@ type Entry = {
     rolled_back_at?: string;
 };
 
-const GraphView: FC = () => {
+const FoxHuntGraphView: FC = () => {
     /* Hooks */
     const dispatch = useAppDispatch();
 
@@ -113,7 +113,7 @@ const GraphView: FC = () => {
     const tagGlyphMap = useTagGlyphs(glyphUtils, darkMode);
     const rollbacksEnabled = graphQuery.data;
     // TODO: figure out when this fetch can be earliest enabled. This is too late
-    const { data: _rollbacks, refetch: refetchRollbacks } = useRollbackQuery(rollbacksEnabled);
+    const { data: _rollbacks, refetch: refetchRollbacks } = useRollbackQuery(!!rollbacksEnabled);
     const rollbacks: { count?: number; entries?: Entry[] } = _rollbacks;
     const { mutateAsync: setRollback } = useRollbackMutation();
 
@@ -220,8 +220,8 @@ const GraphView: FC = () => {
 
     const handleRollbackClick = async (id: number) => {
         setCurrentRollbackId(id);
-        await setRollback(id);
-        refetch();
+        await setRollback(String(id));
+        refetchRollbacks();
     };
 
     const handleManageColumnsChange = (columnOptions: ManageColumnsComboBoxOption[]) => {
@@ -244,7 +244,6 @@ const GraphView: FC = () => {
         if (layout === 'sequential') sigmaChartRef.current?.runSequentialLayout();
     };
 
-    console.log({ currentRollbackIndex });
     return (
         <div
             className='relative h-full w-full overflow-hidden'
@@ -255,7 +254,7 @@ const GraphView: FC = () => {
                 highlightedItem={selectedItem}
                 onClickEdge={setSelectedItem}
                 onClickNode={(node) => {
-                    if (isShiftDown && graphQuery?.data && graphEdgeKind) {
+                    if (Date.now() - isShiftDown < 1000 && graphQuery?.data && graphEdgeKind) {
                         const edge = getEdgePayload(graphQuery?.data, node, selectedItem || '', graphEdgeKind);
                         createEdge(edge);
                     } else {
@@ -368,4 +367,4 @@ const GraphView: FC = () => {
     );
 };
 
-export default GraphView;
+export default FoxHuntGraphView;

@@ -24,6 +24,7 @@ const ExpiredPassword = React.lazy(() => import('src/views/ExpiredPassword'));
 const Home = React.lazy(() => import('src/views/Home/Home'));
 const NotFound = React.lazy(() => import('src/views/NotFound'));
 const FoxHuntExploreGraphView = React.lazy(() => import('src/views/Explore/FoxHuntGraphView/FoxHuntGraphView'));
+const FoxHuntPage = React.lazy(() => import('src/views/Explore/FoxHuntGraphView/FoxHuntPage'));
 const UserProfile = React.lazy(() => import('bh-shared-ui').then((module) => ({ default: module.UserProfile })));
 const DownloadCollectors = React.lazy(() => import('src/views/DownloadCollectors'));
 const Administration = React.lazy(() => import('src/views/Administration'));
@@ -59,6 +60,12 @@ export const ROUTES: Routable[] = [
     {
         path: routes.ROUTE_EXPLORE,
         component: FoxHuntExploreGraphView,
+        authenticationRequired: true,
+        navigation: true,
+    },
+    {
+        path: routes.ROUTE_FOXHUNT,
+        component: FoxHuntPage,
         authenticationRequired: true,
         navigation: true,
     },

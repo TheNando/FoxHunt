@@ -17,6 +17,7 @@
 import { ROUTE_PRIVILEGE_ZONES } from 'bh-shared-ui';
 
 export const ROUTE_HOME = '/';
+export const ROUTE_FOXHUNT = '/foxhunt';
 export const ROUTE_EXPLORE = '/explore';
 export const ROUTE_GROUP_MANAGEMENT = '/group-management';
 export const ROUTE_PZ_SPLAT = ROUTE_PRIVILEGE_ZONES + '/*';

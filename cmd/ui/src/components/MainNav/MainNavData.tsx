@@ -74,6 +74,12 @@ export const useMainNavPrimaryListData = (): MainNavData['primaryList'] => {
             route: tierFlag?.enabled ? ROUTE_PRIVILEGE_ZONES : routes.ROUTE_GROUP_MANAGEMENT,
             testId: tierFlag?.enabled ? 'global_nav-privilege-zones' : 'global_nav-group-management',
         },
+        {
+            label: 'Foxhunt',
+            icon: <AppIcon.Fox size={24} />,
+            route: routes.ROUTE_FOXHUNT,
+            testId: 'global_nav-fox-hunt',
+        },
     ];
 
     if (hasPermissionToUpload) {
