@@ -35,6 +35,7 @@ import {
     makeStoreMapFromColumnOptions,
     useCreateEdgeMutation,
     useCustomNodeKinds,
+    useExploreGraph,
     useExploreParams,
     useExploreSelectedItem,
     useExploreTableAutoDisplay,
@@ -92,6 +93,7 @@ const FoxHuntGraphView: FC = () => {
     const isShiftDown = useAtomValue(isShiftDownAtom);
     const { mutate: createEdge } = useCreateEdgeMutation();
 
+    const { refetch } = useExploreGraph();
     const { searchType } = useExploreParams();
     const { selectedItem, setSelectedItem, clearSelectedItem } = useExploreSelectedItem();
 
@@ -115,6 +117,11 @@ const FoxHuntGraphView: FC = () => {
     const rollbacks: { count?: number; entries?: Entry[] } = _rollbacks;
     const { mutateAsync: setRollback } = useRollbackMutation();
 
+    useEffect(() => {
+        if (rollbacksEnabled) {
+            refetchRollbacks();
+        }
+    }, [showTimeTravel, refetchRollbacks, rollbacksEnabled]);
     const autoDisplayTableEnabled = !exploreLayout && !isExploreTableSelected;
     const [autoDisplayTable, setAutoDisplayTable] = useExploreTableAutoDisplay(autoDisplayTableEnabled);
     // TODO: incorporate into larger hook with auto display table logic
@@ -264,11 +271,12 @@ const FoxHuntGraphView: FC = () => {
                 <div className='border-neutral-500 bg-neutral-100 p-2 w-fit'>
                     <Button onClick={() => setShowTimeTravel(true)}>Show time travel</Button>
                     <Dialog
+                        BackdropProps={{ invisible: true }}
                         scroll='paper'
                         fullWidth={true}
                         open={showTimeTravel}
                         onClose={() => setShowTimeTravel(false)}
-                        PaperProps={{ className: 'w-[90vw] h-[90vh]' }}>
+                        PaperProps={{ className: 'w-[90vw] h-[90vh] absolute right-0' }}>
                         <DialogTitle className='w-full'>
                             <div className='flex justify-between opacity-100'>
                                 <p className='font-bold'>Time travel</p>
@@ -302,7 +310,7 @@ const FoxHuntGraphView: FC = () => {
                                 {rollbacks?.entries?.map((entry, index) => (
                                     <Button
                                         className='flex flex-col'
-                                        key={entry.id + entry.object_id}
+                                        key={`${entry.id}${entry.object_id}${entry.object_type}${entry.created_at}`}
                                         onClick={() => handleRollbackClick(entry.id)}>
                                         <div
                                             className={cn(
